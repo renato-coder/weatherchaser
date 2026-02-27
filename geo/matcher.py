@@ -82,9 +82,9 @@ def _merge_risk(existing: CountyRisk, polygon: RiskPolygon) -> None:
     elif polygon.outlook_type == "wind":
         existing.wind_prob = max(existing.wind_prob, polygon.risk_level)
     elif polygon.outlook_type == "probabilistic":
-        # Day 3-8 combined probability — store in all applicable fields
-        # Use as "any severe" indicator
+        # Day 3-8 combined "any severe" probability — store in all hazard fields
         existing.hail_prob = max(existing.hail_prob, polygon.risk_level)
+        existing.tornado_prob = max(existing.tornado_prob, polygon.risk_level)
         existing.wind_prob = max(existing.wind_prob, polygon.risk_level)
 
 
