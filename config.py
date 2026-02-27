@@ -151,6 +151,15 @@ DEMAND_WINDOW_START_DAYS = 14  # Days after storm before demand rises
 DEMAND_WINDOW_END_DAYS = 28    # Days after storm when demand peaks end
 
 # ---------------------------------------------------------------------------
+# Briefing parameters
+# ---------------------------------------------------------------------------
+
+BRIEFING_CATEGORICAL_MIN = 3   # SLIGHT — lower threshold for briefing
+BRIEFING_MAX_DAY = 5           # Only include Days 1-5 in briefings
+ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
+ANTHROPIC_MAX_TOKENS = 1024
+
+# ---------------------------------------------------------------------------
 # NWS API constants
 # ---------------------------------------------------------------------------
 
