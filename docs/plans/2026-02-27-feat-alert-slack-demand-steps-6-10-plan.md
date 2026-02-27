@@ -1,7 +1,7 @@
 ---
 title: "feat: Alert-based Slack Notifications with Demand Framing (Steps 6-10)"
 type: feat
-status: active
+status: completed
 date: 2026-02-27
 ---
 
@@ -161,17 +161,17 @@ Before building on the pipeline, resolve two blockers from the code review:
 
 - [x] Replace `REMI_MARKETS` plain dicts with `Market` dataclass in `config.py`
 - [x] Add `Market` dataclass: `name`, `short_name`, `fips_codes`, `states`, `owner`
-- [ ] Curate FIPS codes for 10 markets:
-  - [ ] Dallas-Fort Worth (DFW) — ~12 counties: Tarrant 48439, Dallas 48113, Collin 48085, Denton 48121, Ellis 48139, Johnson 48251, Kaufman 48257, Parker 48367, Rockwall 48397, Hunt 48231, Wise 48497, Hood 48221
-  - [ ] Houston — ~9 counties: Harris 48201, Fort Bend 48157, Montgomery 48339, Brazoria 48039, Galveston 48167, Liberty 48291, Chambers 48071, Waller 48473, Austin 48015
-  - [ ] Oklahoma City (OKC) — ~7 counties: Oklahoma 40109, Cleveland 40027, Canadian 40017, Grady 40051, Logan 40083, McClain 40087, Lincoln 40081
-  - [ ] Denver — ~7 counties: Denver 08031, Arapahoe 08005, Jefferson 08059, Adams 08001, Douglas 08035, Broomfield 08014, Boulder 08013
-  - [ ] Nashville — ~7 counties: Davidson 47037, Williamson 47187, Rutherford 47149, Sumner 47165, Wilson 47189, Robertson 47147, Cheatham 47021
-  - [ ] San Antonio — ~5 counties: Bexar 48029, Comal 48091, Guadalupe 48187, Medina 48325, Kendall 48259
-  - [ ] Minneapolis — ~7 counties: Hennepin 27053, Ramsey 27123, Dakota 27037, Anoka 27003, Washington 27163, Scott 27139, Carver 27019
-  - [ ] Atlanta — ~10 counties: Fulton 13121, DeKalb 13089, Gwinnett 13135, Cobb 13067, Clayton 13063, Cherokee 13057, Forsyth 13117, Henry 13151, Douglas 13097, Paulding 13223
-  - [ ] Phoenix — ~2 counties: Maricopa 04013, Pinal 04021
-  - [ ] Raleigh — ~5 counties: Wake 37183, Durham 37063, Johnston 37101, Orange 37135, Chatham 37037
+- [x] Curate FIPS codes for 10 markets:
+  - [x] Dallas-Fort Worth (DFW) — ~12 counties: Tarrant 48439, Dallas 48113, Collin 48085, Denton 48121, Ellis 48139, Johnson 48251, Kaufman 48257, Parker 48367, Rockwall 48397, Hunt 48231, Wise 48497, Hood 48221
+  - [x] Houston — ~9 counties: Harris 48201, Fort Bend 48157, Montgomery 48339, Brazoria 48039, Galveston 48167, Liberty 48291, Chambers 48071, Waller 48473, Austin 48015
+  - [x] Oklahoma City (OKC) — ~7 counties: Oklahoma 40109, Cleveland 40027, Canadian 40017, Grady 40051, Logan 40083, McClain 40087, Lincoln 40081
+  - [x] Denver — ~7 counties: Denver 08031, Arapahoe 08005, Jefferson 08059, Adams 08001, Douglas 08035, Broomfield 08014, Boulder 08013
+  - [x] Nashville — ~7 counties: Davidson 47037, Williamson 47187, Rutherford 47149, Sumner 47165, Wilson 47189, Robertson 47147, Cheatham 47021
+  - [x] San Antonio — ~5 counties: Bexar 48029, Comal 48091, Guadalupe 48187, Medina 48325, Kendall 48259
+  - [x] Minneapolis — ~7 counties: Hennepin 27053, Ramsey 27123, Dakota 27037, Anoka 27003, Washington 27163, Scott 27139, Carver 27019
+  - [x] Atlanta — ~10 counties: Fulton 13121, DeKalb 13089, Gwinnett 13135, Cobb 13067, Clayton 13063, Cherokee 13057, Forsyth 13117, Henry 13151, Douglas 13097, Paulding 13223
+  - [x] Phoenix — ~2 counties: Maricopa 04013, Pinal 04021
+  - [x] Raleigh — ~5 counties: Wake 37183, Durham 37063, Johnston 37101, Orange 37135, Chatham 37037
 - [x] Add `DEMAND_WINDOW_START_DAYS = 14` and `DEMAND_WINDOW_END_DAYS = 28` to `config.py`
 - [x] Add NWS constants: `NWS_BASE_URL`, `NWS_USER_AGENT`, `NWS_RELEVANT_EVENTS`
 - [x] Create `markets.py` with `classify_markets(results: list[DayResult], markets: list[Market]) -> dict[int, list[MarketResult]]`
@@ -292,23 +292,23 @@ Note: Day 4 included in "Heads Up" range (not a dead zone).
 
 #### Phase 6: CLI Orchestration (`main.py`)
 
-- [ ] Refactor `run_scan()` to return `(results, data_available)` (prerequisite from Phase 0)
-- [ ] Add `run_markets(results, counties) -> (market_results, demand_windows)` helper
-- [ ] Add `run_alerts(market_results) -> nws_alerts` helper
-- [ ] Wire subcommands:
+- [x] Refactor `run_scan()` to return `(results, data_available)` (prerequisite from Phase 0)
+- [x] Add `run_markets(results, counties) -> (market_results, demand_windows)` helper
+- [x] Add `run_alerts(market_results) -> nws_alerts` helper
+- [x] Wire subcommands:
   - `scan` — existing pipeline + optional `--slack`, `--csv`
   - `markets` — scan + market classification + optional Visual Crossing (if API key set)
   - `alerts` — NWS alerts for states with configured markets
   - `full` — scan + markets + alerts, all outputs
-- [ ] Wire flags:
+- [x] Wire flags:
   - `--slack` — post to Slack (summary format for `scan`, alert triggers for `full`)
   - `--csv PATH` — export to CSV file
   - `--states TX,OK` — filter counties to these states (existing)
-- [ ] Handle missing optional config gracefully:
+- [x] Handle missing optional config gracefully:
   - No `SLACK_WEBHOOK_URL` → skip Slack with warning
   - No `VISUAL_CROSSING_API_KEY` → skip Visual Crossing with note
-- [ ] Update console output to include market section and demand windows
-- [ ] Add `--quiet` flag to suppress stderr progress (useful for cron)
+- [x] Update console output to include market section and demand windows
+- [x] Add `--quiet` flag to suppress stderr progress (useful for cron)
 
 ## Alternative Approaches Considered
 
