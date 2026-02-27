@@ -183,34 +183,34 @@ Before building on the pipeline, resolve two blockers from the code review:
 
 #### Phase 2: Demand Window Calculator (`demand.py`)
 
-- [ ] Create `demand.py` with `DemandWindow` dataclass
-- [ ] `compute_windows(market_results: dict[int, list[MarketResult]], scan_date: date) -> list[DemandWindow]`
+- [x] Create `demand.py` with `DemandWindow` dataclass
+- [x] `compute_windows(market_results: dict[int, list[MarketResult]], scan_date: date) -> list[DemandWindow]`
   - For each market with risk, resolve SPC day number to calendar date: `scan_date + timedelta(days=day - 1)`
   - For multi-day storms in same market, use the FIRST day as `storm_date`
   - Calculate `window_start = storm_date + DEMAND_WINDOW_START_DAYS`
   - Calculate `window_end = storm_date + DEMAND_WINDOW_END_DAYS`
   - Set `confirmed = True` if day == 1 and NWS has confirmed warnings (pass NWS data in later)
-- [ ] `format_window(window: DemandWindow) -> str` — returns human-readable string like "Volume bump Mar 16-30"
-- [ ] Add `if __name__ == "__main__":` block
-- [ ] Test: verify window dates for various day numbers
+- [x] `format_window(window: DemandWindow) -> str` — returns human-readable string like "Volume bump Mar 16-30"
+- [x] Add `if __name__ == "__main__":` block
+- [x] Test: verify window dates for various day numbers
 
 #### Phase 3: NWS Active Alerts (`sources/nws_alerts.py`)
 
-- [ ] Create `sources/nws_alerts.py` with `NWSAlert` dataclass
-- [ ] `fetch_alerts_for_states(states: list[str]) -> dict[str, list[NWSAlert]]`
+- [x] Create `sources/nws_alerts.py` with `NWSAlert` dataclass
+- [x] `fetch_alerts_for_states(states: list[str]) -> dict[str, list[NWSAlert]]`
   - Fetch `GET {NWS_BASE_URL}/alerts/active?area={STATE}&status=actual&message_type=alert,update`
   - Set `User-Agent` header (REQUIRED — 403 without it)
   - Set `Accept: application/geo+json` header
   - Filter client-side for `NWS_RELEVANT_EVENTS`
   - Retry once on 5xx/timeout, then skip state with warning
   - Pace requests: 0.5s delay between state fetches
-- [ ] `summarize_alerts(alerts: dict[str, list[NWSAlert]]) -> dict[str, dict]`
+- [x] `summarize_alerts(alerts: dict[str, list[NWSAlert]]) -> dict[str, dict]`
   - Group by event type: `{"TX": {"Tornado Warning": 2, "Severe Thunderstorm Watch": 1}}`
-- [ ] `has_confirmed_warnings(alerts: list[NWSAlert]) -> bool`
+- [x] `has_confirmed_warnings(alerts: list[NWSAlert]) -> bool`
   - Returns True if any alerts have `certainty == "Observed"` or event contains "Warning" (not Watch)
   - Used as proxy for "It Happened" trigger
-- [ ] Add `if __name__ == "__main__":` block — fetch alerts for TX,OK and print summary
-- [ ] Test: run standalone, verify alert parsing and filtering
+- [x] Add `if __name__ == "__main__":` block — fetch alerts for TX,OK and print summary
+- [x] Test: run standalone, verify alert parsing and filtering
 
 #### Phase 4: Slack Output with Alert Triggers (`output/slack.py`)
 
