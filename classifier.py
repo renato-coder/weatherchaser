@@ -12,15 +12,20 @@ from geo.matcher import aggregate_by_state
 def classify(
     matched: dict[int, list[CountyRisk]],
     data_available: bool = True,
+    categorical_min: int | None = None,
 ) -> list[DayResult]:
-    """Apply CAT thresholds and return classified results per day."""
+    """Apply CAT thresholds and return classified results per day.
+
+    Pass categorical_min to override the default spc_categorical_min threshold.
+    """
     results: list[DayResult] = []
 
     for day in sorted(matched):
         county_risks = matched[day]
 
         # Filter to counties meeting at least one threshold
-        flagged = [cr for cr in county_risks if _meets_threshold(cr)]
+        flagged = [cr for cr in county_risks
+                   if _meets_threshold(cr, categorical_min=categorical_min)]
 
         # Sort by risk (highest first)
         flagged.sort(key=lambda cr: (
@@ -43,11 +48,12 @@ def classify(
     return results
 
 
-def _meets_threshold(risk: CountyRisk) -> bool:
+def _meets_threshold(risk: CountyRisk, categorical_min: int | None = None) -> bool:
     """Check if a county risk meets any CAT threshold."""
     if risk.significant:
         return True
-    if risk.categorical_level >= CAT_THRESHOLDS["spc_categorical_min"]:
+    cat_min = categorical_min if categorical_min is not None else CAT_THRESHOLDS["spc_categorical_min"]
+    if risk.categorical_level >= cat_min:
         return True
     if risk.hail_prob >= CAT_THRESHOLDS["hail_prob_min"]:
         return True
