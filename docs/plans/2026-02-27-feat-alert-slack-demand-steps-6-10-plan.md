@@ -281,14 +281,14 @@ Note: Day 4 included in "Heads Up" range (not a dead zone).
 
 #### Phase 5: CSV Export (`output/csv_export.py`)
 
-- [ ] `export_csv(path: str, results: list[DayResult], market_results: dict[int, list[MarketResult]], demand_windows: list[DemandWindow]) -> None`
-- [ ] Columns: `date, day_number, state, county, fips, risk_level, risk_name, hail_prob, tornado_prob, wind_prob, significant, market, demand_window_start, demand_window_end`
+- [x] `export_csv(path: str, results: list[DayResult], market_results: dict[int, list[MarketResult]], demand_windows: list[DemandWindow]) -> None`
+- [x] Columns: `date, day_number, state, county, fips, risk_level, risk_name, hail_prob, tornado_prob, wind_prob, significant, market, demand_window_start, demand_window_end`
   - `market` column populated when county belongs to a defined market, else empty
   - `demand_window_start/end` populated when county's market has a demand window, else empty
-- [ ] Use stdlib `csv` module (no pandas dependency)
-- [ ] Write header row + one row per flagged county per day
-- [ ] Add `if __name__ == "__main__":` block
-- [ ] Test: run pipeline, export, verify CSV opens in Excel/Numbers
+- [x] Use stdlib `csv` module (no pandas dependency)
+- [x] Write header row + one row per flagged county per day
+- [x] Add `if __name__ == "__main__":` block
+- [x] Test: run pipeline, export, verify CSV opens in Excel/Numbers
 
 #### Phase 6: CLI Orchestration (`main.py`)
 
