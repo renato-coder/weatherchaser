@@ -228,24 +228,24 @@ Note: Day 4 included in "Heads Up" range (not a dead zone).
 
 **State Management:**
 
-- [ ] `_load_state() -> dict` — load `data/alert_state.json`, return empty dict if missing/corrupt
-- [ ] `_save_state(state: dict) -> None` — write state atomically (write to temp, rename)
-- [ ] `_should_send(market_name: str, alert_type: str, storm_id: str, state: dict) -> bool`
+- [x] `_load_state() -> dict` — load `data/alert_state.json`, return empty dict if missing/corrupt
+- [x] `_save_state(state: dict) -> None` — write state atomically (write to temp, rename)
+- [x] `_should_send(market_name: str, alert_type: str, storm_id: str, state: dict) -> bool`
   - `storm_id` = `f"{scan_date}-day{day}"` — identifies a unique storm forecast
   - Return False if same market + storm_id + alert_type was already sent
   - Return True if alert_type escalated (heads_up → plan_for_it → it_happened)
-- [ ] `_record_sent(market_name: str, alert_type: str, storm_id: str, state: dict) -> None`
+- [x] `_record_sent(market_name: str, alert_type: str, storm_id: str, state: dict) -> None`
 
 **Message Formatting:**
 
-- [ ] `_format_heads_up(market_result, demand_window, alerts) -> dict`
+- [x] `_format_heads_up(market_result, demand_window, alerts) -> dict`
   ```
   ⚠️ DFW Metro — Severe Weather Possible Next Wednesday
   15% any-severe probability across 8 of 12 counties.
   If confirmed, expect volume bump Mar 16-30.
   Action: heads up for Bryan, monitor forecast updates.
   ```
-- [ ] `_format_plan_for_it(market_result, demand_window, alerts) -> dict`
+- [x] `_format_plan_for_it(market_result, demand_window, alerts) -> dict`
   ```
   🔴 OKC Metro — Hail Expected Wednesday
   ENHANCED risk. 27 counties affected. Hail: 30% | Tornado: 10% | Wind: 25%
@@ -253,15 +253,15 @@ Note: Day 4 included in "Heads Up" range (not a dead zone).
   Expect volume bump Mar 16-30.
   Action: flag for Bryan, check sub availability in OK.
   ```
-- [ ] `_format_it_happened(market_result, demand_window, alerts) -> dict`
+- [x] `_format_it_happened(market_result, demand_window, alerts) -> dict`
   ```
   🚨 DFW Metro — Storm Confirmed Today
   MODERATE risk confirmed. 3 Tornado Warnings, 5 Severe Thunderstorm Warnings active.
   Volume window: Mar 16-30. Start scheduling crews.
   Action: Bryan to activate Dallas response plan.
   ```
-- [ ] `_format_summary(results, market_results, demand_windows) -> dict` — daily digest format matching spec.md Slack Output Format section
-- [ ] `_post_message(webhook_url: str, payload: dict) -> bool`
+- [x] `_format_summary(results, market_results, demand_windows) -> dict` — daily digest format matching spec.md Slack Output Format section
+- [x] `_post_message(webhook_url: str, payload: dict) -> bool`
   - POST to webhook with `Content-Type: application/json`
   - Handle 429 with `Retry-After`
   - Log errors to stderr, return success/failure bool
@@ -269,13 +269,13 @@ Note: Day 4 included in "Heads Up" range (not a dead zone).
 
 **Public Interface:**
 
-- [ ] `post_alerts(results, market_results, demand_windows, nws_alerts, webhook_url) -> int`
+- [x] `post_alerts(results, market_results, demand_windows, nws_alerts, webhook_url) -> int`
   - Evaluate trigger conditions for each market
   - Check state file for deduplication
   - Send qualifying messages
   - Update state file
   - Return count of messages sent
-- [ ] `post_summary(results, market_results, demand_windows, nws_alerts, webhook_url) -> bool`
+- [x] `post_summary(results, market_results, demand_windows, nws_alerts, webhook_url) -> bool`
   - Send the full daily digest (non-trigger, just formatted output)
   - Used with `--slack` flag on `scan` command
 
