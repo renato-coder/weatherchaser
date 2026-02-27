@@ -94,16 +94,74 @@ CAT_THRESHOLDS = {
 }
 
 # ---------------------------------------------------------------------------
-# Remi markets (for future Visual Crossing integration)
+# Remi markets — metro areas mapped to county FIPS codes
 # ---------------------------------------------------------------------------
 
-REMI_MARKETS = [
-    {"name": "Dallas-Fort Worth", "zip": "75201", "state": "TX"},
-    {"name": "Houston", "zip": "77001", "state": "TX"},
-    {"name": "Denver", "zip": "80201", "state": "CO"},
-    {"name": "Oklahoma City", "zip": "73101", "state": "OK"},
-    {"name": "Nashville", "zip": "37201", "state": "TN"},
+@dataclass
+class Market:
+    """A Remi metro market defined by its constituent counties."""
+    name: str           # "Dallas-Fort Worth"
+    short_name: str     # "DFW"
+    fips_codes: list[str] = field(default_factory=list)
+    states: list[str] = field(default_factory=list)
+    owner: str = ""     # Person to flag in Slack action items
+    zip_code: str = ""  # Representative zip for Visual Crossing
+
+REMI_MARKETS: list[Market] = [
+    Market("Dallas-Fort Worth", "DFW",
+           ["48439", "48113", "48085", "48121", "48139", "48251",
+            "48257", "48367", "48397", "48231", "48497", "48221"],
+           ["TX"], "Bryan", "75201"),
+    Market("Houston", "HOU",
+           ["48201", "48157", "48339", "48039", "48167", "48291",
+            "48071", "48473", "48015"],
+           ["TX"], "Bryan", "77001"),
+    Market("Oklahoma City", "OKC",
+           ["40109", "40027", "40017", "40051", "40083", "40087", "40081"],
+           ["OK"], "Bryan", "73101"),
+    Market("Denver", "DEN",
+           ["08031", "08005", "08059", "08001", "08035", "08014", "08013"],
+           ["CO"], "", "80201"),
+    Market("Nashville", "NSH",
+           ["47037", "47187", "47149", "47165", "47189", "47147", "47021"],
+           ["TN"], "", "37201"),
+    Market("San Antonio", "SAT",
+           ["48029", "48091", "48187", "48325", "48259"],
+           ["TX"], "", "78201"),
+    Market("Minneapolis", "MSP",
+           ["27053", "27123", "27037", "27003", "27163", "27139", "27019"],
+           ["MN"], "", "55401"),
+    Market("Atlanta", "ATL",
+           ["13121", "13089", "13135", "13067", "13063", "13057",
+            "13117", "13151", "13097", "13223"],
+           ["GA"], "", "30301"),
+    Market("Phoenix", "PHX",
+           ["04013", "04021"],
+           ["AZ"], "", "85001"),
+    Market("Raleigh", "RAL",
+           ["37183", "37063", "37101", "37135", "37037"],
+           ["NC"], "", "27601"),
 ]
+
+# ---------------------------------------------------------------------------
+# Demand window parameters
+# ---------------------------------------------------------------------------
+
+DEMAND_WINDOW_START_DAYS = 14  # Days after storm before demand rises
+DEMAND_WINDOW_END_DAYS = 28    # Days after storm when demand peaks end
+
+# ---------------------------------------------------------------------------
+# NWS API constants
+# ---------------------------------------------------------------------------
+
+NWS_BASE_URL = "https://api.weather.gov"
+NWS_USER_AGENT = "(remi-cat-tracker, contact@remirc.com)"
+NWS_RELEVANT_EVENTS: set[str] = {
+    "Tornado Warning", "Tornado Watch",
+    "Severe Thunderstorm Warning", "Severe Thunderstorm Watch",
+    "Hurricane Warning", "Hurricane Watch",
+    "Extreme Wind Warning",
+}
 
 # ---------------------------------------------------------------------------
 # FIPS state codes → 2-letter abbreviation (CONUS + DC)

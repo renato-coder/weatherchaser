@@ -26,18 +26,21 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "scan":
-        run_scan(states=args.states)
+        from output.console import render_console
+
+        results, any_data = run_scan(states=args.states)
+        print(file=sys.stderr)
+        render_console(results, data_available=any_data)
     else:
         parser.print_help()
 
 
-def run_scan(states: str | None = None) -> None:
-    """Run the full SPC scan pipeline."""
+def run_scan(states: str | None = None) -> tuple[list, bool]:
+    """Run the full SPC scan pipeline. Returns (results, data_available)."""
     from sources.spc import fetch_spc_outlooks
     from geo.counties import load_counties
     from geo.matcher import match_counties
     from classifier import classify
-    from output.console import render_console
 
     print("Fetching SPC outlooks...", file=sys.stderr)
     outlooks, any_data = fetch_spc_outlooks()
@@ -56,8 +59,7 @@ def run_scan(states: str | None = None) -> None:
     print("Classifying results...", file=sys.stderr)
     results = classify(matched, data_available=any_data)
 
-    print(file=sys.stderr)
-    render_console(results, data_available=any_data)
+    return results, any_data
 
 
 if __name__ == "__main__":
