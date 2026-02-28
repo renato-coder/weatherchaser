@@ -240,7 +240,7 @@ The twice-weekly cadence makes real-time alert data stale. NWS alerts stay in th
 
 #### Phase 3: CLI Wiring (`main.py`)
 
-- [ ] Add `briefing` subcommand to argparse:
+- [x] Add `briefing` subcommand to argparse:
   ```python
   briefing_parser = subparsers.add_parser(
       "briefing", help="AI-generated demand briefing for Slack",
@@ -248,7 +248,7 @@ The twice-weekly cadence makes real-time alert data stale. NWS alerts stay in th
   briefing_parser.add_argument("--slack", action="store_true")
   briefing_parser.add_argument("--states", help="Filter states")
   ```
-- [ ] Implement `_cmd_briefing(args)`:
+- [x] Implement `_cmd_briefing(args)`:
   1. `run_scan(states=args.states)` — full SPC pipeline
   2. `classify(matched, categorical_min=BRIEFING_CATEGORICAL_MIN)` — lower threshold
   3. Filter results to `day <= BRIEFING_MAX_DAY`
@@ -260,7 +260,7 @@ The twice-weekly cadence makes real-time alert data stale. NWS alerts stay in th
   9. If `--slack` and webhook set: post to Slack
   10. Handle missing `ANTHROPIC_API_KEY`: warn and exit
 
-- [ ] Note: the briefing pipeline needs access to the raw `matched` data (pre-classification) so it can call `classify()` with the lower threshold. Refactor `run_scan()` to optionally return `matched` dict, OR extract a `run_briefing_pipeline()` helper that runs the full chain with the briefing threshold.
+- [x] Note: the briefing pipeline needs access to the raw `matched` data (pre-classification) so it can call `classify()` with the lower threshold. Refactor `run_scan()` to optionally return `matched` dict, OR extract a `run_briefing_pipeline()` helper that runs the full chain with the briefing threshold.
 
   Cleanest approach — extract a `_run_pipeline()` that returns intermediate results:
   ```python
@@ -276,7 +276,7 @@ The twice-weekly cadence makes real-time alert data stale. NWS alerts stay in th
       return results, market_results, windows, any_data
   ```
 
-- [ ] Test: `python3 main.py briefing` — prints briefing to stdout
+- [x] Test: `python3 main.py briefing` — prints briefing to stdout
 - [ ] Test: `python3 main.py briefing --slack` — posts to Slack and prints to stdout
 
 #### Phase 4: Clean Up Alert Tier Code
