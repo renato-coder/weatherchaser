@@ -66,6 +66,16 @@ def main() -> None:
         help="Suppress stderr progress messages",
     )
 
+    # briefing command
+    briefing_parser = subparsers.add_parser(
+        "briefing", help="AI-generated demand briefing for Slack",
+    )
+    briefing_parser.add_argument("--states", help="Filter states")
+    briefing_parser.add_argument(
+        "--slack", action="store_true",
+        help="Post briefing to Slack",
+    )
+
     args = parser.parse_args()
 
     # Redirect stderr to /dev/null in quiet mode
@@ -80,6 +90,8 @@ def main() -> None:
         _cmd_alerts(args)
     elif args.command == "full":
         _cmd_full(args)
+    elif args.command == "briefing":
+        _cmd_briefing(args)
     else:
         parser.print_help()
 
@@ -270,16 +282,70 @@ def _cmd_full(args: argparse.Namespace) -> None:
         print(f"  {sent} Slack alert(s) sent.", file=sys.stderr)
 
 
+def _cmd_briefing(args: argparse.Namespace) -> None:
+    """AI-generated demand briefing using Claude Sonnet."""
+    from config import BRIEFING_CATEGORICAL_MIN, BRIEFING_MAX_DAY
+    from output.briefing import generate_briefing, post_briefing, prepare_briefing_data
+
+    # Check for API key early
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        print("Error: ANTHROPIC_API_KEY not set. Add it to .env or environment.",
+              file=sys.stderr)
+        sys.exit(1)
+
+    results, market_results, windows, any_data = _run_pipeline(
+        states=getattr(args, "states", None),
+        categorical_min=BRIEFING_CATEGORICAL_MIN,
+    )
+
+    # Filter to Days 1-5 only
+    results = [dr for dr in results if dr.day <= BRIEFING_MAX_DAY]
+    market_results = {d: mrs for d, mrs in market_results.items() if d <= BRIEFING_MAX_DAY}
+    windows = [w for w in windows if w.trigger_day <= BRIEFING_MAX_DAY]
+
+    scan_date = date.today()
+    data = prepare_briefing_data(market_results, windows, scan_date)
+
+    print("\nGenerating briefing...", file=sys.stderr)
+    text = generate_briefing(data)
+    if text is None:
+        print("Error: Failed to generate briefing.", file=sys.stderr)
+        sys.exit(1)
+
+    # Always print to stdout
+    print(text)
+
+    if getattr(args, "slack", False):
+        webhook = os.environ.get("SLACK_WEBHOOK_URL", "")
+        if not webhook:
+            print("  Warning: SLACK_WEBHOOK_URL not set, skipping Slack", file=sys.stderr)
+            return
+        if post_briefing(text, webhook):
+            print("  Briefing posted to Slack.", file=sys.stderr)
+
+
 # ---------------------------------------------------------------------------
 # Pipeline helpers
 # ---------------------------------------------------------------------------
 
 def run_scan(states: str | None = None) -> tuple[list, bool]:
     """Run the full SPC scan pipeline. Returns (results, data_available)."""
+    results, _, _, any_data = _run_pipeline(states=states)
+    return results, any_data
+
+
+def _run_pipeline(
+    states: str | None = None,
+    categorical_min: int | None = None,
+) -> tuple[list, dict, list, bool]:
+    """Run scan pipeline. Returns (results, market_results, windows, any_data)."""
     from sources.spc import fetch_spc_outlooks
     from geo.counties import load_counties
     from geo.matcher import match_counties
     from classifier import classify
+    from markets import classify_markets
+    from demand import compute_windows
 
     print("Fetching SPC outlooks...", file=sys.stderr)
     outlooks, any_data = fetch_spc_outlooks()
@@ -296,9 +362,12 @@ def run_scan(states: str | None = None) -> tuple[list, bool]:
     matched = match_counties(outlooks, counties)
 
     print("Classifying results...", file=sys.stderr)
-    results = classify(matched, data_available=any_data)
+    results = classify(matched, data_available=any_data, categorical_min=categorical_min)
 
-    return results, any_data
+    market_results = classify_markets(results)
+    windows = compute_windows(market_results)
+
+    return results, market_results, windows, any_data
 
 
 if __name__ == "__main__":
