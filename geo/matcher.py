@@ -21,9 +21,10 @@ def match_counties(
     if not counties:
         return {}
 
-    # Build spatial index from county centroids
-    centroids = [c.centroid for c in counties]
-    tree = STRtree(centroids)
+    # Build spatial index from county geometries (full polygons for intersection matching)
+    # Falls back to centroid if geometry is missing
+    geoms = [c.geometry if c.geometry is not None else c.centroid for c in counties]
+    tree = STRtree(geoms)
 
     results: dict[int, list[CountyRisk]] = {}
 
@@ -52,8 +53,9 @@ def match_counties(
 
                 for idx in hit_indices:
                     county = counties[idx]
-                    # Verify with precise within check
-                    if not county.centroid.within(poly):
+                    # Verify with precise intersection check (full geometry or centroid)
+                    county_geom = county.geometry if county.geometry is not None else county.centroid
+                    if not county_geom.intersects(poly):
                         continue
 
                     fips = county.fips

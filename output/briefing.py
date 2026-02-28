@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 import anthropic
@@ -37,6 +39,7 @@ team what they need to know. Rules:
 - No weather jargon. No risk scores. No probability percentages.
   No FIPS codes. No county counts. Write like a teammate, not a
   dashboard.
+- If data_freshness is provided, end with a note like "Data as of {data_freshness}."
 - Keep it under 200 words."""
 
 # Hazard labels for risk types
@@ -51,6 +54,7 @@ def prepare_briefing_data(
     market_results: dict[int, list[MarketResult]],
     demand_windows: list[DemandWindow],
     scan_date: date | None = None,
+    data_freshness: str = "",
 ) -> dict:
     """Serialize market risk data into a clean JSON structure for Claude."""
     if scan_date is None:
@@ -114,12 +118,15 @@ def prepare_briefing_data(
     active_names = set(active.keys())
     quiet = [m.name for m in REMI_MARKETS if m.short_name not in active_names]
 
-    return {
+    result = {
         "scan_date": scan_date.isoformat(),
         "briefing_day": scan_date.strftime("%A"),
         "active_markets": list(active.values()),
         "quiet_markets": quiet,
     }
+    if data_freshness:
+        result["data_freshness"] = data_freshness
+    return result
 
 
 def generate_briefing(briefing_data: dict) -> str | None:
@@ -176,6 +183,68 @@ def post_briefing(briefing_text: str, webhook_url: str) -> bool:
 
     payload = {"text": briefing_text}
     return _post_message(webhook_url, payload)
+
+
+# ---------------------------------------------------------------------------
+# Briefing validation
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ValidationResult:
+    """Result of validating a generated briefing against input data."""
+    passed: bool = True
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+
+def validate_briefing(text: str, briefing_data: dict) -> ValidationResult:
+    """Validate that a generated briefing matches the input data."""
+    result = ValidationResult()
+    text_lower = text.lower()
+
+    # 1. Every active market name/short_name should appear in the briefing
+    for market in briefing_data.get("active_markets", []):
+        name = market.get("name", "")
+        short = market.get("short_name", "")
+        if name.lower() not in text_lower and short.lower() not in text_lower:
+            result.errors.append(f"Active market '{name}' ({short}) not mentioned in briefing")
+            result.passed = False
+
+    # 2. Quiet markets should not appear near risk language (unless "quiet"/"all quiet" context)
+    risk_words = {"risk", "storm", "hail", "tornado", "damaging", "severe", "threat"}
+    for market_name in briefing_data.get("quiet_markets", []):
+        name_lower = market_name.lower()
+        if name_lower not in text_lower:
+            continue
+        # Find the position(s) of the market name and check surrounding context
+        idx = text_lower.find(name_lower)
+        while idx != -1:
+            # Check 100 chars around the mention
+            context_start = max(0, idx - 50)
+            context_end = min(len(text_lower), idx + len(name_lower) + 50)
+            context = text_lower[context_start:context_end]
+            # OK if "quiet" or "all quiet" is nearby
+            if "quiet" in context or "clear" in context:
+                break
+            # Warning if risk words are nearby
+            if any(w in context for w in risk_words):
+                result.warnings.append(
+                    f"Quiet market '{market_name}' appears near risk language"
+                )
+                break
+            idx = text_lower.find(name_lower, idx + 1)
+
+    # 3. No probability percentages (e.g., "15%", "30%")
+    pct_matches = re.findall(r'\d+%', text)
+    if pct_matches:
+        result.warnings.append(f"Probability percentages found: {', '.join(pct_matches)}")
+
+    # 4. No county counts (e.g., "12 counties", "3 counties")
+    county_matches = re.findall(r'\d+\s+counties', text_lower)
+    if county_matches:
+        result.warnings.append(f"County counts found: {', '.join(county_matches)}")
+
+    return result
 
 
 if __name__ == "__main__":

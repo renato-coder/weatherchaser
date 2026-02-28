@@ -113,6 +113,7 @@ def _parse_county_geojson(path: str) -> list[County]:
             state_fips=state_fips,
             state_abbr=state_abbr,
             centroid=centroid,
+            geometry=geom,
         ))
 
     if skipped:

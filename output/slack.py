@@ -36,6 +36,7 @@ def _format_summary(
     demand_windows: list[DemandWindow],
     nws_alerts: dict[str, list[NWSAlert]],
     scan_date: date,
+    data_freshness: str = "",
 ) -> dict:
     """Format a full daily summary using Slack Block Kit."""
     now = datetime.now()
@@ -161,6 +162,15 @@ def _format_summary(
             },
         })
 
+    # Data freshness context block
+    if data_freshness:
+        blocks.append({
+            "type": "context",
+            "elements": [
+                {"type": "mrkdwn", "text": f"\U0001f552 Data as of {data_freshness}"},
+            ],
+        })
+
     # Build fallback text
     market_count = sum(1 for v in market_best.values() if v >= 3)
     fallback = f"REMI CAT TRACKER — {market_count} market(s) at risk"
@@ -211,11 +221,13 @@ def post_summary(
     nws_alerts: dict[str, list[NWSAlert]],
     webhook_url: str,
     scan_date: date | None = None,
+    data_freshness: str = "",
 ) -> bool:
     """Post a full daily summary to Slack. Returns True on success."""
     if scan_date is None:
         scan_date = date.today()
-    payload = _format_summary(results, market_results, demand_windows, nws_alerts, scan_date)
+    payload = _format_summary(results, market_results, demand_windows, nws_alerts,
+                              scan_date, data_freshness=data_freshness)
     return _post_message(webhook_url, payload)
 
 
