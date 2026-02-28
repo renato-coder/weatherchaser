@@ -1,24 +1,18 @@
-"""Slack output — alert triggers and daily summary."""
+"""Slack output — daily summary (Block Kit) and HTTP posting."""
 
 from __future__ import annotations
 
-import json
-import os
 import sys
-import tempfile
 import time
 from datetime import date, datetime, timedelta
 
 import requests
 
 from classifier import risk_display_name
-from config import REMI_MARKETS, RISK_NAMES, DayResult, Market
+from config import REMI_MARKETS, DayResult
 from demand import DemandWindow, format_window
 from markets import MarketResult
-from sources.nws_alerts import NWSAlert, has_confirmed_warnings, summarize_alerts
-
-# Alert type escalation order
-_ALERT_LEVELS = {"heads_up": 1, "plan_for_it": 2, "it_happened": 3}
+from sources.nws_alerts import NWSAlert, summarize_alerts
 
 # Risk level → emoji
 _RISK_EMOJI: dict[int, str] = {
@@ -30,182 +24,6 @@ _RISK_EMOJI: dict[int, str] = {
     1: "\u26aa",      # ⚪ TSTM
     0: "\U0001f7e2",  # 🟢 NONE
 }
-
-_STATE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "alert_state.json")
-
-
-# ---------------------------------------------------------------------------
-# State management
-# ---------------------------------------------------------------------------
-
-def _load_state() -> dict:
-    """Load alert state from JSON file. Returns empty dict if missing/corrupt."""
-    try:
-        with open(_STATE_PATH) as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return {}
-
-
-def _save_state(state: dict) -> None:
-    """Write state atomically (write to temp, rename)."""
-    os.makedirs(os.path.dirname(_STATE_PATH), exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(_STATE_PATH), suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(state, f, indent=2)
-        os.replace(tmp, _STATE_PATH)
-    except Exception:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
-
-
-def _should_send(
-    market_name: str, alert_type: str, storm_id: str, state: dict,
-) -> bool:
-    """Check if this alert should be sent (deduplication + escalation)."""
-    markets = state.get("markets", {})
-    prev = markets.get(market_name)
-    if prev is None:
-        return True
-
-    if prev.get("storm_id") != storm_id:
-        return True
-
-    prev_level = _ALERT_LEVELS.get(prev.get("last_alert_type", ""), 0)
-    new_level = _ALERT_LEVELS.get(alert_type, 0)
-    return new_level > prev_level
-
-
-def _record_sent(
-    market_name: str, alert_type: str, storm_id: str, state: dict,
-) -> None:
-    """Record that an alert was sent."""
-    if "markets" not in state:
-        state["markets"] = {}
-    state["markets"][market_name] = {
-        "last_alert_type": alert_type,
-        "storm_id": storm_id,
-        "last_alert_time": datetime.now().isoformat(timespec="seconds"),
-    }
-    state["last_run"] = datetime.now().isoformat(timespec="seconds")
-
-
-# ---------------------------------------------------------------------------
-# Message formatting — trigger alerts (mrkdwn)
-# ---------------------------------------------------------------------------
-
-def _storm_day_label(day: int, scan_date: date) -> str:
-    """Human-readable day label like 'Wednesday' or 'Today'."""
-    target = scan_date + timedelta(days=day - 1)
-    if day == 1:
-        return "Today"
-    if day == 2:
-        return "Tomorrow"
-    return target.strftime("%A")
-
-
-def _format_heads_up(
-    mr: MarketResult,
-    window: DemandWindow | None,
-    alerts: list[NWSAlert],
-    scan_date: date,
-) -> dict:
-    """Format a 'Heads Up' alert (Days 4-8, SLIGHT+)."""
-    day_label = _storm_day_label(mr.day, scan_date)
-    max_prob = max(mr.max_hail, mr.max_tornado, mr.max_wind)
-
-    lines = [
-        f"\u26a0\ufe0f *{mr.market.short_name} Metro — Severe Weather Possible {day_label}*",
-        f"{max_prob}% any-severe probability across {mr.affected_counties} of {mr.total_counties} counties.",
-    ]
-    if window:
-        lines.append(f"If confirmed, expect {format_window(window).lower()}.")
-    action = f"Action: heads up for {mr.market.owner}" if mr.market.owner else "Action: monitor forecast updates"
-    if mr.market.owner:
-        action += ", monitor forecast updates."
-    else:
-        action += "."
-    lines.append(action)
-
-    text = "\n".join(lines)
-    return {"text": text}
-
-
-def _format_plan_for_it(
-    mr: MarketResult,
-    window: DemandWindow | None,
-    alerts: list[NWSAlert],
-    scan_date: date,
-) -> dict:
-    """Format a 'Plan For It' alert (Days 1-3, ENH+)."""
-    day_label = _storm_day_label(mr.day, scan_date)
-    risk_name = risk_display_name(mr.highest_risk)
-
-    lines = [
-        f"\U0001f534 *{mr.market.short_name} Metro — Severe Weather Expected {day_label}*",
-        f"{risk_name} risk. {mr.affected_counties} counties affected. "
-        f"Hail: {mr.max_hail}% | Tornado: {mr.max_tornado}% | Wind: {mr.max_wind}%",
-    ]
-
-    # Add NWS alert summary if any
-    alert_parts = []
-    for a in alerts:
-        alert_parts.append(a.event)
-    if alert_parts:
-        from collections import Counter
-        counts = Counter(alert_parts)
-        alert_str = ", ".join(f"{n} {evt}" for evt, n in counts.most_common())
-        lines.append(f"\u26a0\ufe0f {alert_str} active.")
-
-    if window:
-        lines.append(f"Expect {format_window(window).lower()}.")
-
-    states_str = "/".join(mr.market.states)
-    if mr.market.owner:
-        lines.append(f"Action: flag for {mr.market.owner}, check sub availability in {states_str}.")
-    else:
-        lines.append(f"Action: check sub availability in {states_str}.")
-
-    text = "\n".join(lines)
-    return {"text": text}
-
-
-def _format_it_happened(
-    mr: MarketResult,
-    window: DemandWindow | None,
-    alerts: list[NWSAlert],
-    scan_date: date,
-) -> dict:
-    """Format an 'It Happened' alert (Day 1 + NWS confirmed)."""
-    risk_name = risk_display_name(mr.highest_risk)
-
-    lines = [
-        f"\U0001f6a8 *{mr.market.short_name} Metro — Storm Confirmed Today*",
-        f"{risk_name} risk confirmed.",
-    ]
-
-    # Alert counts
-    from collections import Counter
-    counts = Counter(a.event for a in alerts)
-    if counts:
-        parts = [f"{n} {evt}" for evt, n in counts.most_common()]
-        lines[-1] += f" {', '.join(parts)} active."
-
-    if window:
-        lines.append(f"Volume window: {window.window_start.strftime('%b %-d')}–"
-                      f"{window.window_end.strftime('%b %-d')}. Start scheduling crews.")
-
-    if mr.market.owner:
-        lines.append(f"Action: {mr.market.owner} to activate {mr.market.name} response plan.")
-    else:
-        lines.append(f"Action: activate {mr.market.name} response plan.")
-
-    text = "\n".join(lines)
-    return {"text": text}
 
 
 # ---------------------------------------------------------------------------
@@ -386,79 +204,6 @@ def _post_message(webhook_url: str, payload: dict) -> bool:
 # Public interface
 # ---------------------------------------------------------------------------
 
-def post_alerts(
-    market_results: dict[int, list[MarketResult]],
-    demand_windows: list[DemandWindow],
-    nws_alerts: dict[str, list[NWSAlert]],
-    webhook_url: str,
-    scan_date: date | None = None,
-) -> int:
-    """Evaluate trigger conditions and post alert messages.
-
-    Returns count of messages sent.
-    """
-    if scan_date is None:
-        scan_date = date.today()
-
-    state = _load_state()
-    sent_count = 0
-
-    # Build window lookup
-    window_lookup: dict[str, DemandWindow] = {}
-    for w in demand_windows:
-        window_lookup[w.market.short_name] = w
-
-    # Build NWS alerts lookup by state
-    # Flatten to per-market alerts based on market states
-    market_alerts: dict[str, list[NWSAlert]] = {}
-    for day, mrs in market_results.items():
-        for mr in mrs:
-            key = mr.market.short_name
-            if key not in market_alerts:
-                alerts_for_market: list[NWSAlert] = []
-                for s in mr.market.states:
-                    alerts_for_market.extend(nws_alerts.get(s, []))
-                market_alerts[key] = alerts_for_market
-
-    # Evaluate each market-day combination
-    for day in sorted(market_results):
-        for mr in market_results[day]:
-            short = mr.market.short_name
-            storm_id = f"{scan_date}-day{day}"
-            window = window_lookup.get(short)
-            alerts = market_alerts.get(short, [])
-
-            # Determine trigger type
-            alert_type = None
-            payload = None
-
-            if day == 1 and has_confirmed_warnings(alerts):
-                alert_type = "it_happened"
-                payload = _format_it_happened(mr, window, alerts, scan_date)
-            elif day <= 3 and mr.highest_risk >= 4:  # ENH+
-                alert_type = "plan_for_it"
-                payload = _format_plan_for_it(mr, window, alerts, scan_date)
-            elif day >= 4 and mr.highest_risk >= 3:  # SLIGHT+
-                alert_type = "heads_up"
-                payload = _format_heads_up(mr, window, alerts, scan_date)
-
-            if alert_type is None:
-                continue
-
-            if not _should_send(short, alert_type, storm_id, state):
-                print(f"  {short} Day {day}: {alert_type} already sent, skipping",
-                      file=sys.stderr)
-                continue
-
-            print(f"  {short} Day {day}: sending {alert_type}...", file=sys.stderr)
-            if _post_message(webhook_url, payload):
-                _record_sent(short, alert_type, storm_id, state)
-                sent_count += 1
-
-    _save_state(state)
-    return sent_count
-
-
 def post_summary(
     results: list[DayResult],
     market_results: dict[int, list[MarketResult]],
@@ -484,7 +229,7 @@ if __name__ == "__main__":
     from markets import classify_markets
     from demand import compute_windows
 
-    print("Running full pipeline → Slack output preview...", file=sys.stderr)
+    print("Running full pipeline → Slack summary preview...", file=sys.stderr)
 
     outlooks, any_data = fetch_spc_outlooks()
     counties = load_counties()
@@ -513,28 +258,3 @@ if __name__ == "__main__":
     payload = _format_summary(results, market_results, windows, nws, scan_date)
     print("=== Summary Payload (Block Kit) ===")
     print(_json.dumps(payload, indent=2))
-
-    # Preview trigger alerts
-    print("\n=== Alert Triggers ===")
-    window_lookup = {w.market.short_name: w for w in windows}
-    for day in sorted(market_results):
-        for mr in market_results[day]:
-            short = mr.market.short_name
-            alerts = []
-            for s in mr.market.states:
-                alerts.extend(nws.get(s, []))
-
-            window = window_lookup.get(short)
-            if day == 1 and has_confirmed_warnings(alerts):
-                p = _format_it_happened(mr, window, alerts, scan_date)
-                print(f"\n[IT HAPPENED] {short} Day {day}:")
-            elif day <= 3 and mr.highest_risk >= 4:
-                p = _format_plan_for_it(mr, window, alerts, scan_date)
-                print(f"\n[PLAN FOR IT] {short} Day {day}:")
-            elif day >= 4 and mr.highest_risk >= 3:
-                p = _format_heads_up(mr, window, alerts, scan_date)
-                print(f"\n[HEADS UP] {short} Day {day}:")
-            else:
-                print(f"\n[NO TRIGGER] {short} Day {day}: risk {mr.highest_risk} (below threshold)")
-                continue
-            print(p["text"])

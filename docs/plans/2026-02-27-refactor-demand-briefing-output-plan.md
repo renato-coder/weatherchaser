@@ -281,23 +281,23 @@ The twice-weekly cadence makes real-time alert data stale. NWS alerts stay in th
 
 #### Phase 4: Clean Up Alert Tier Code
 
-- [ ] Remove from `output/slack.py`:
+- [x] Remove from `output/slack.py`:
   - `_ALERT_LEVELS` dict
   - `_load_state()`, `_save_state()`, `_should_send()`, `_record_sent()`
   - `_format_heads_up()`, `_format_plan_for_it()`, `_format_it_happened()`
   - `post_alerts()`
   - `_STATE_PATH` constant
   - All imports only used by removed code (`tempfile`, etc.)
-- [ ] Keep in `output/slack.py`:
+- [x] Keep in `output/slack.py`:
   - `_RISK_EMOJI` (used by `_format_summary`)
   - `_format_summary()` (used by `scan --slack`, `markets --slack`)
   - `post_summary()` (public interface for daily digest)
   - `_post_message()` (used by briefing module and post_summary)
-- [ ] Update `full --slack` in `main.py` to use `post_summary()` instead of `post_alerts()`
-- [ ] Delete `data/alert_state.json` if it exists
-- [ ] Remove the standalone test code in `output/slack.py` `__main__` block that references alert triggers, replace with summary-only test
-- [ ] Test: `python3 main.py full --slack` still works (now posts summary instead of alerts)
-- [ ] Test: `python3 main.py scan --slack` still works unchanged
+- [x] Update `full --slack` in `main.py` to use `post_summary()` instead of `post_alerts()`
+- [x] Delete `data/alert_state.json` if it exists
+- [x] Remove the standalone test code in `output/slack.py` `__main__` block that references alert triggers, replace with summary-only test
+- [x] Test: `python3 main.py full --slack` still works (now posts summary instead of alerts)
+- [x] Test: `python3 main.py scan --slack` still works unchanged
 
 #### Phase 5: Documentation and Cron Setup
 
