@@ -19,11 +19,20 @@ from config import (
 )
 
 
+_fetch_metadata: dict[str, str] = {}
+
+
+def get_fetch_metadata() -> dict[str, str]:
+    """Return metadata from the most recent fetch (URL -> Last-Modified/Date header)."""
+    return dict(_fetch_metadata)
+
+
 def fetch_spc_outlooks() -> tuple[dict[int, list[RiskPolygon]], bool]:
     """Fetch all SPC outlook GeoJSON files for Days 1-8.
 
     Returns (outlooks_by_day, any_data_fetched).
     """
+    _fetch_metadata.clear()
     outlooks: dict[int, list[RiskPolygon]] = defaultdict(list)
     success_count = 0
 
@@ -75,6 +84,11 @@ def _fetch_geojson(url: str) -> dict | None:
             if resp.status_code >= 400:
                 print(f"HTTP {resp.status_code} ", end="", file=sys.stderr)
                 return None
+
+            # Capture freshness metadata
+            last_mod = resp.headers.get("Last-Modified", resp.headers.get("Date", ""))
+            if last_mod:
+                _fetch_metadata[url] = last_mod
 
             return resp.json()
 

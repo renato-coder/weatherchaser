@@ -34,6 +34,7 @@ class County:
     state_fips: str             # 2-digit state FIPS
     state_abbr: str             # "TX", "OK", etc.
     centroid: Point             # Shapely Point for matching
+    geometry: Union[Polygon, MultiPolygon, None] = None  # Full boundary for intersection matching
 
 
 @dataclass
