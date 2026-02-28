@@ -270,16 +270,17 @@ def _cmd_full(args: argparse.Namespace) -> None:
         from output.csv_export import export_csv
         export_csv(args.csv, results, market_results, windows)
 
-    # Slack: post alert triggers (not summary)
+    # Slack: post daily summary
     if getattr(args, "slack", False):
         webhook = os.environ.get("SLACK_WEBHOOK_URL", "")
         if not webhook:
             print("  Warning: SLACK_WEBHOOK_URL not set, skipping Slack", file=sys.stderr)
             return
 
-        from output.slack import post_alerts
-        sent = post_alerts(market_results, windows, nws_alerts, webhook)
-        print(f"  {sent} Slack alert(s) sent.", file=sys.stderr)
+        from output.slack import post_summary
+        ok = post_summary(results, market_results, windows, nws_alerts, webhook)
+        if ok:
+            print("  Slack summary posted.", file=sys.stderr)
 
 
 def _cmd_briefing(args: argparse.Namespace) -> None:
