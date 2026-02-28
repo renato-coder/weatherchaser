@@ -144,25 +144,25 @@ The twice-weekly cadence makes real-time alert data stale. NWS alerts stay in th
 
 #### Phase 1: Foundation — Config and Classifier Changes
 
-- [ ] Add constants to `config.py`:
+- [x] Add constants to `config.py`:
   ```python
   BRIEFING_CATEGORICAL_MIN = 3   # SLIGHT
   BRIEFING_MAX_DAY = 5           # Only Days 1-5
   ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
   ANTHROPIC_MAX_TOKENS = 1024
   ```
-- [ ] Add `ANTHROPIC_API_KEY` to `.env` loading (already handled by `python-dotenv`)
-- [ ] Modify `classifier.py` — add optional `categorical_min` parameter to `classify()`:
+- [x] Add `ANTHROPIC_API_KEY` to `.env` loading (already handled by `python-dotenv`)
+- [x] Modify `classifier.py` — add optional `categorical_min` parameter to `classify()`:
   - Default: `None` (uses `CAT_THRESHOLDS["spc_categorical_min"]` = 4)
   - When set: overrides the categorical check in `_meets_threshold()`
   - Probabilistic thresholds remain unchanged
-- [ ] Add `anthropic` to `requirements.txt`
-- [ ] Test: `python3 -m classifier` still works with default threshold
-- [ ] Test: calling `classify(matched, categorical_min=3)` returns more counties than `classify(matched)`
+- [x] Add `anthropic` to `requirements.txt`
+- [x] Test: `python3 -m classifier` still works with default threshold
+- [x] Test: calling `classify(matched, categorical_min=3)` returns more counties than `classify(matched)`
 
 #### Phase 2: Briefing Module (`output/briefing.py`)
 
-- [ ] Create `output/briefing.py` with:
+- [x] Create `output/briefing.py` with:
 
   **`prepare_briefing_data()`** — serialize market results for Claude:
   ```python
@@ -235,8 +235,8 @@ The twice-weekly cadence makes real-time alert data stale. NWS alerts stay in th
   - Uses existing `output.slack._post_message()` internally
   - Payload: `{"text": briefing_text}` (plain mrkdwn, no Block Kit)
 
-- [ ] Add `if __name__ == "__main__":` block for standalone testing
-- [ ] Test: run against live data, verify Claude generates a clean briefing
+- [x] Add `if __name__ == "__main__":` block for standalone testing
+- [x] Test: run against live data, verify Claude generates a clean briefing
 
 #### Phase 3: CLI Wiring (`main.py`)
 
