@@ -115,6 +115,7 @@ File: `main.py`
 ```
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 VISUAL_CROSSING_API_KEY=your_key_here
+ANTHROPIC_API_KEY=sk-ant-...  # Required for briefing command
 ```
 
 Use `python-dotenv` to load from `.env` file.
@@ -128,7 +129,17 @@ python -m sources.spc          # Fetches and prints SPC data
 python -m geo.counties          # Loads and prints county stats
 python -m geo.matcher           # Runs matcher against live SPC data
 python -m classifier            # Runs full classification
-python main.py scan             # Full pipeline
+python main.py scan             # Full scan pipeline
+python main.py briefing         # AI-generated demand briefing (primary interface)
+python main.py briefing --slack # Post briefing to Slack
+python main.py full             # Full pipeline: scan + markets + alerts
+```
+
+### Cron Setup (briefing)
+
+```bash
+# Storm briefing: Monday and Thursday at 7:00 AM CT (13:00 UTC)
+0 13 * * 1,4 cd /path/to/weatherchaser && python3 main.py briefing --slack --quiet
 ```
 
 Add `if __name__ == "__main__":` blocks to each module for standalone testing.
