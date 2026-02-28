@@ -1,7 +1,7 @@
 ---
 title: "refactor: Replace alert tiers with AI-generated demand briefing"
 type: refactor
-status: active
+status: completed
 date: 2026-02-27
 ---
 
@@ -301,17 +301,17 @@ The twice-weekly cadence makes real-time alert data stale. NWS alerts stay in th
 
 #### Phase 5: Documentation and Cron Setup
 
-- [ ] Update `CLAUDE.md`:
+- [x] Update `CLAUDE.md`:
   - Add `ANTHROPIC_API_KEY` to Environment Variables section
   - Add `briefing` to the CLI commands list
   - Note: briefing is the primary interface, scan/full are power-user tools
-- [ ] Add cron example to output:
+- [x] Add cron example to output:
   ```bash
   # Storm briefing: Monday and Thursday at 7:00 AM CT (13:00 UTC)
   0 13 * * 1,4 cd /path/to/weatherchaser && python3 main.py briefing --slack --quiet
   ```
-- [ ] Update `requirements.txt` with `anthropic>=0.40.0`
-- [ ] Test full end-to-end: `python3 main.py briefing --slack`
+- [x] Update `requirements.txt` with `anthropic>=0.40.0`
+- [x] Test full end-to-end: `python3 main.py briefing --slack`
 
 ## Alternative Approaches Considered
 
