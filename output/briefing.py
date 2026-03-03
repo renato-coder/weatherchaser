@@ -33,7 +33,7 @@ team what they need to know. Rules:
 - Start with: 📋 Storm Brief — {day_of_week} {month} {day}
 - Group active markets together. For each, write 1-2 plain English
   sentences: what's coming (hail, tornado risk, storms), when, and
-  when demand would spike. Use the market owner's name if provided.
+  when demand would spike. Do not mention individual people or owners.
 - Group quiet markets in one line: "{names} — all quiet."
 - End with a casual sign-off like "That's it for this week."
 - No weather jargon. No risk scores. No probability percentages.
@@ -100,7 +100,6 @@ def prepare_briefing_data(
                     "name": mr.market.name,
                     "short_name": short,
                     "states": mr.market.states,
-                    "owner": mr.market.owner,
                     "risk_days": [],
                     "demand_window": None,
                 }
@@ -210,36 +209,68 @@ def validate_briefing(text: str, briefing_data: dict) -> ValidationResult:
             result.errors.append(f"Active market '{name}' ({short}) not mentioned in briefing")
             result.passed = False
 
-    # 2. Quiet markets should not appear near risk language (unless "quiet"/"all quiet" context)
-    risk_words = {"risk", "storm", "hail", "tornado", "damaging", "severe", "threat"}
-    for market_name in briefing_data.get("quiet_markets", []):
+    # 2. Quiet markets must not be described as having risk (hallucinated storms)
+    risk_words = {"risk", "storm", "hail", "tornado", "damaging", "severe", "threat",
+                  "wind", "thunder", "hurricane", "demand spike", "volume bump"}
+    quiet_set = set(briefing_data.get("quiet_markets", []))
+    for market_name in quiet_set:
         name_lower = market_name.lower()
         if name_lower not in text_lower:
             continue
-        # Find the position(s) of the market name and check surrounding context
+        # Find every mention and check surrounding context
         idx = text_lower.find(name_lower)
         while idx != -1:
-            # Check 100 chars around the mention
             context_start = max(0, idx - 50)
-            context_end = min(len(text_lower), idx + len(name_lower) + 50)
+            context_end = min(len(text_lower), idx + len(name_lower) + 80)
             context = text_lower[context_start:context_end]
-            # OK if "quiet" or "all quiet" is nearby
-            if "quiet" in context or "clear" in context:
+            # OK if "quiet" or "clear" or "no" is nearby
+            if "quiet" in context or "clear" in context or "no " in context:
                 break
-            # Warning if risk words are nearby
+            # FAIL if risk words are nearby — this is a hallucinated storm
             if any(w in context for w in risk_words):
-                result.warnings.append(
-                    f"Quiet market '{market_name}' appears near risk language"
+                result.errors.append(
+                    f"HALLUCINATION: Quiet market '{market_name}' described with "
+                    f"risk language — no storm exists in the data"
                 )
+                result.passed = False
                 break
             idx = text_lower.find(name_lower, idx + 1)
 
-    # 3. No probability percentages (e.g., "15%", "30%")
+    # 3. No hallucinated markets — any market mentioned with risk language
+    #    must be in the active list
+    active_names = set()
+    for market in briefing_data.get("active_markets", []):
+        active_names.add(market.get("name", "").lower())
+        active_names.add(market.get("short_name", "").lower())
+
+    for m in REMI_MARKETS:
+        if m.name.lower() in active_names or m.short_name.lower() in active_names:
+            continue
+        name_lower = m.name.lower()
+        if name_lower not in text_lower:
+            continue
+        idx = text_lower.find(name_lower)
+        while idx != -1:
+            context_start = max(0, idx - 50)
+            context_end = min(len(text_lower), idx + len(name_lower) + 80)
+            context = text_lower[context_start:context_end]
+            if "quiet" in context or "clear" in context or "no " in context:
+                break
+            if any(w in context for w in risk_words):
+                result.errors.append(
+                    f"HALLUCINATION: '{m.name}' described with risk language "
+                    f"but has no active risk in the data"
+                )
+                result.passed = False
+                break
+            idx = text_lower.find(name_lower, idx + 1)
+
+    # 4. No probability percentages (e.g., "15%", "30%")
     pct_matches = re.findall(r'\d+%', text)
     if pct_matches:
         result.warnings.append(f"Probability percentages found: {', '.join(pct_matches)}")
 
-    # 4. No county counts (e.g., "12 counties", "3 counties")
+    # 5. No county counts (e.g., "12 counties", "3 counties")
     county_matches = re.findall(r'\d+\s+counties', text_lower)
     if county_matches:
         result.warnings.append(f"County counts found: {', '.join(county_matches)}")

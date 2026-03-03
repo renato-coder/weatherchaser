@@ -75,6 +75,10 @@ def main() -> None:
         "--slack", action="store_true",
         help="Post briefing to Slack",
     )
+    briefing_parser.add_argument(
+        "--email", action="store_true",
+        help="Send briefing as HTML email via Gmail SMTP",
+    )
 
     # verify command
     verify_parser = subparsers.add_parser(
@@ -359,6 +363,40 @@ def _cmd_briefing(args: argparse.Namespace) -> None:
             print("  Warning: SLACK_WEBHOOK_URL not set, skipping Slack", file=sys.stderr)
         elif post_briefing(text, webhook):
             print("  Briefing posted to Slack.", file=sys.stderr)
+
+    if getattr(args, "email", False) and not validation.passed:
+        print("  Email BLOCKED — validation failed. Fix errors above.",
+              file=sys.stderr)
+    elif getattr(args, "email", False):
+        from output.email_report import format_briefing_html
+
+        email_to = os.environ.get("EMAIL_TO", "renato@remihq.com")
+        html = format_briefing_html(
+            briefing_text=text,
+            results=results,
+            market_results=market_results,
+            windows=windows,
+            data_freshness=data_freshness,
+            scan_date=scan_date,
+            validation_passed=validation.passed,
+        )
+        subject = (f"\U0001f329\ufe0f REMI CAT Tracker \u2014 "
+                   f"Storm Brief ({scan_date.strftime('%b %-d, %Y')})")
+
+        # Save HTML + metadata for claude to send via Gmail MCP
+        email_dir = os.path.join(os.path.dirname(__file__), "data")
+        os.makedirs(email_dir, exist_ok=True)
+        html_path = os.path.join(email_dir, "latest_email.html")
+        meta_path = os.path.join(email_dir, "latest_email_meta.txt")
+
+        with open(html_path, "w") as f:
+            f.write(html)
+        with open(meta_path, "w") as f:
+            f.write(f"to: {email_to}\nsubject: {subject}\n")
+
+        print(f"  Email HTML saved to {html_path}", file=sys.stderr)
+        print(f"  To: {email_to}", file=sys.stderr)
+        print(f"  Subject: {subject}", file=sys.stderr)
 
     # Archive this run
     from archive import archive_run
